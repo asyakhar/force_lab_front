@@ -1,21 +1,15 @@
 // frontend/src/pages/MainPage.jsx
 import React, { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 import "./MainPage.css";
 
 const MainPage = () => {
   const navigate = useNavigate();
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-
-  useEffect(() => {
-    const token = localStorage.getItem("accessToken");
-    setIsLoggedIn(!!token);
-  }, []);
+  const { isLoggedIn, userRole, logout, updateTrigger } = useAuth();
 
   const handleLogout = () => {
-    localStorage.removeItem("accessToken");
-    localStorage.removeItem("refreshToken");
-    setIsLoggedIn(false);
+    logout();
     navigate("/");
   };
 
@@ -29,18 +23,33 @@ const MainPage = () => {
               <span className="logo-text">FORCE LAB</span>
             </div>
             <div className="nav-links">
-              <Link to="/" className="nav-link">
-                О нас
-              </Link>
               <Link to="/trainings" className="nav-link">
                 Программы
               </Link>
-              <Link to="/team" className="nav-link">
-                Тренеры
-              </Link>
-              <Link to="/contacts" className="nav-link">
-                Контакты
-              </Link>
+
+              {/* ДОБАВИТЬ: Для спортсмена */}
+              {isLoggedIn && userRole === "ATHLETE" && (
+                <>
+                  <Link to="/my-trainings" className="nav-link">
+                    Мои тренировки
+                  </Link>
+                  <Link to="/achievements" className="nav-link">
+                    Достижения
+                  </Link>
+                  <Link to="/progress" className="nav-link">
+                    Прогресс
+                  </Link>
+                </>
+              )}
+
+              {/* Для тренера */}
+              {isLoggedIn && userRole === "COACH" && (
+                <>
+                  <Link to="/coach/athletes" className="nav-link">
+                    Мои спортсмены
+                  </Link>
+                </>
+              )}
             </div>
             <div className="nav-actions">
               {isLoggedIn ? (

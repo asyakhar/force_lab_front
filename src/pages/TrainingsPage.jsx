@@ -1,17 +1,22 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { fetchWithAuth } from "../api";
+import { useAuth } from "../context/AuthContext";
 import "./TrainingsPage.css";
 
 const TrainingsPage = () => {
   const navigate = useNavigate();
+  const { isLoggedIn, userRole, triggerUpdate } = useAuth();
   const [trainings, setTrainings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [userRole, setUserRole] = useState(null);
   const [showCreateForm, setShowCreateForm] = useState(false);
-  const [newTraining, setNewTraining] = useState({
+  const [editingTraining, setEditingTraining] = useState(null);
+  const [selectedTraining, setSelectedTraining] = useState(null);
+  const [participants, setParticipants] = useState([]);
+  const [showParticipantsModal, setShowParticipantsModal] = useState(false);
+
+  const [formData, setFormData] = useState({
     title: "",
     description: "",
     trainingDate: "",
@@ -21,21 +26,7 @@ const TrainingsPage = () => {
     maxParticipants: 20,
   });
 
-  useEffect(() => {
-    const token = localStorage.getItem("accessToken");
-    if (token) {
-      setIsLoggedIn(true);
-      try {
-        const payload = JSON.parse(atob(token.split(".")[1]));
-        setUserRole(payload.role || "ATHLETE");
-      } catch (e) {
-        console.error("Error decoding token");
-      }
-    }
-    fetchTrainings();
-  }, []);
-
-  const fetchTrainings = async () => {
+  const fetchTrainings = useCallback(async () => {
     try {
       const response = await fetch(
         "http://localhost:8080/api/trainings/upcoming"
@@ -47,6 +38,97 @@ const TrainingsPage = () => {
       setError(err.message);
     } finally {
       setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchTrainings();
+  }, [triggerUpdate]);
+
+  useEffect(() => {
+    const handleFocus = () => fetchTrainings();
+    window.addEventListener("focus", handleFocus);
+    return () => window.removeEventListener("focus", handleFocus);
+  }, [fetchTrainings]);
+
+  const handleEdit = (training) => {
+    setEditingTraining(training.id);
+    setFormData({
+      title: training.title,
+      description: training.description || "",
+      trainingDate: training.trainingDate,
+      durationMinutes: training.durationMinutes,
+      location: training.location || "",
+      sportType: training.sportType || "",
+      maxParticipants: training.maxParticipants || 20,
+    });
+    setShowCreateForm(true);
+  };
+
+  const handleDelete = async (trainingId) => {
+    if (!window.confirm("Вы уверены, что хотите удалить эту тренировку?"))
+      return;
+
+    try {
+      const response = await fetchWithAuth(
+        `http://localhost:8080/api/trainings/${trainingId}`,
+        { method: "DELETE" }
+      );
+      if (!response.ok) throw new Error("Ошибка удаления");
+      alert("Тренировка удалена");
+      fetchTrainings();
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
+  const loadParticipants = async (training) => {
+    setSelectedTraining(training);
+    try {
+      const response = await fetchWithAuth(
+        `http://localhost:8080/api/trainings/${training.id}/participants`
+      );
+      if (response.ok) {
+        const data = await response.json();
+        setParticipants(data);
+      }
+    } catch (err) {
+      console.error("Ошибка загрузки участников");
+    }
+    setShowParticipantsModal(true);
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      const url = editingTraining
+        ? `http://localhost:8080/api/trainings/${editingTraining}`
+        : "http://localhost:8080/api/trainings";
+
+      const method = editingTraining ? "PUT" : "POST";
+
+      const response = await fetchWithAuth(url, {
+        method,
+        body: JSON.stringify(formData),
+      });
+
+      if (!response.ok) throw new Error("Ошибка сохранения");
+
+      alert(editingTraining ? "Тренировка обновлена!" : "Тренировка создана!");
+      setShowCreateForm(false);
+      setEditingTraining(null);
+      setFormData({
+        title: "",
+        description: "",
+        trainingDate: "",
+        durationMinutes: 60,
+        location: "",
+        sportType: "",
+        maxParticipants: 20,
+      });
+      fetchTrainings();
+    } catch (err) {
+      alert(err.message);
     }
   };
 
@@ -87,34 +169,6 @@ const TrainingsPage = () => {
     }
   };
 
-  const handleCreateTraining = async (e) => {
-    e.preventDefault();
-    try {
-      const response = await fetchWithAuth(
-        "http://localhost:8080/api/trainings",
-        {
-          method: "POST",
-          body: JSON.stringify(newTraining),
-        }
-      );
-      if (!response.ok) throw new Error("Ошибка создания тренировки");
-      alert("Тренировка создана!");
-      setShowCreateForm(false);
-      setNewTraining({
-        title: "",
-        description: "",
-        trainingDate: "",
-        durationMinutes: 60,
-        location: "",
-        sportType: "",
-        maxParticipants: 20,
-      });
-      fetchTrainings();
-    } catch (err) {
-      alert(err.message);
-    }
-  };
-
   const formatDate = (dateString) => {
     const date = new Date(dateString);
     return date.toLocaleString("ru-RU", {
@@ -126,22 +180,6 @@ const TrainingsPage = () => {
     });
   };
 
-  const getStatusClass = (dateString) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    if (date < now) return "completed";
-    if (date - now < 24 * 60 * 60 * 1000) return "soon";
-    return "upcoming";
-  };
-
-  const getStatusText = (dateString) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    if (date < now) return "Завершена";
-    if (date - now < 24 * 60 * 60 * 1000) return "Скоро";
-    return "Предстоит";
-  };
-
   if (loading) return <div className="loading">Загрузка тренировок...</div>;
   if (error) return <div className="error">{error}</div>;
 
@@ -149,22 +187,37 @@ const TrainingsPage = () => {
     <div className="trainings-page">
       <header className="header">
         <div className="container header-container">
-          <div
-            className="logo"
-            onClick={() => navigate("/")}
-            style={{ cursor: "pointer" }}
-          >
-            <span className="logo-icon">⚡</span>
+          <div className="logo" onClick={() => navigate("/")}>
             <span className="logo-text">FORCE LAB</span>
           </div>
           <div className="header-actions">
             <button className="btn-outline" onClick={() => navigate("/")}>
               На главную
             </button>
+            {userRole === "ATHLETE" && (
+              <button
+                className="btn-outline"
+                onClick={() => navigate("/my-trainings")}
+              >
+                📅 Мои тренировки
+              </button>
+            )}
             {userRole === "COACH" && (
               <button
                 className="btn-primary"
-                onClick={() => setShowCreateForm(!showCreateForm)}
+                onClick={() => {
+                  setEditingTraining(null);
+                  setFormData({
+                    title: "",
+                    description: "",
+                    trainingDate: "",
+                    durationMinutes: 60,
+                    location: "",
+                    sportType: "",
+                    maxParticipants: 20,
+                  });
+                  setShowCreateForm(!showCreateForm);
+                }}
               >
                 {showCreateForm ? "Отмена" : "+ Создать тренировку"}
               </button>
@@ -173,124 +226,147 @@ const TrainingsPage = () => {
         </div>
       </header>
 
-      {/* ДОБАВЬТЕ ЭТОТ БЛОК - отступ для фиксированного header */}
-      <div className="header-spacer"></div>
-
       <main className="container">
-        {/* ДОБАВЬТЕ ЗАГОЛОВОК СТРАНИЦЫ */}
         <h1 className="page-title">🏋️‍♂️ Тренировки</h1>
 
         {showCreateForm && userRole === "COACH" && (
           <div className="create-training-form">
-            <h3>Создать новую тренировку</h3>
-            <form onSubmit={handleCreateTraining}>
+            <h3>
+              {editingTraining
+                ? "✏️ Редактирование тренировки"
+                : "➕ Создание новой тренировки"}
+            </h3>
+            <form onSubmit={handleSubmit}>
+              <div className="form-group">
+                <label className="form-label">📌 Название тренировки *</label>
+                <input
+                  type="text"
+                  placeholder="Например: Силовая тренировка для пловцов"
+                  value={formData.title}
+                  onChange={(e) =>
+                    setFormData({ ...formData, title: e.target.value })
+                  }
+                  required
+                  className="form-input"
+                />
+              </div>
+
               <div className="form-row">
                 <div className="form-group">
-                  <input
-                    type="text"
-                    placeholder="Название тренировки *"
-                    value={newTraining.title}
-                    onChange={(e) =>
-                      setNewTraining({ ...newTraining, title: e.target.value })
-                    }
-                    required
-                    className="form-input"
-                  />
-                </div>
-                <div className="form-group">
+                  <label className="form-label">📅 Дата и время *</label>
                   <input
                     type="datetime-local"
-                    placeholder="Дата и время *"
-                    value={newTraining.trainingDate}
+                    value={formData.trainingDate}
                     onChange={(e) =>
-                      setNewTraining({
-                        ...newTraining,
-                        trainingDate: e.target.value,
-                      })
-                    }
-                    required
-                    className="form-input"
-                  />
-                </div>
-              </div>
-              <div className="form-row">
-                <div className="form-group">
-                  <input
-                    type="text"
-                    placeholder="Вид спорта *"
-                    value={newTraining.sportType}
-                    onChange={(e) =>
-                      setNewTraining({
-                        ...newTraining,
-                        sportType: e.target.value,
-                      })
+                      setFormData({ ...formData, trainingDate: e.target.value })
                     }
                     required
                     className="form-input"
                   />
                 </div>
                 <div className="form-group">
-                  <input
-                    type="text"
-                    placeholder="Место проведения"
-                    value={newTraining.location}
-                    onChange={(e) =>
-                      setNewTraining({
-                        ...newTraining,
-                        location: e.target.value,
-                      })
-                    }
-                    className="form-input"
-                  />
-                </div>
-              </div>
-              <div className="form-row">
-                <div className="form-group">
+                  <label className="form-label">⏱️ Длительность (мин)</label>
                   <input
                     type="number"
-                    placeholder="Длительность (мин)"
-                    value={newTraining.durationMinutes}
+                    placeholder="60"
+                    value={formData.durationMinutes}
                     onChange={(e) =>
-                      setNewTraining({
-                        ...newTraining,
+                      setFormData({
+                        ...formData,
                         durationMinutes: parseInt(e.target.value),
                       })
                     }
                     className="form-input"
                   />
                 </div>
+              </div>
+
+              <div className="form-row">
                 <div className="form-group">
-                  <input
-                    type="number"
-                    placeholder="Макс. участников"
-                    value={newTraining.maxParticipants}
+                  <label className="form-label">🏋️ Вид спорта *</label>
+                  <select
+                    value={formData.sportType}
                     onChange={(e) =>
-                      setNewTraining({
-                        ...newTraining,
-                        maxParticipants: parseInt(e.target.value),
-                      })
+                      setFormData({ ...formData, sportType: e.target.value })
+                    }
+                    required
+                    className="form-input"
+                  >
+                    <option value="">Выберите вид спорта...</option>
+                    <option value="Футбол">⚽ Футбол</option>
+                    <option value="Баскетбол">🏀 Баскетбол</option>
+                    <option value="Волейбол">🏐 Волейбол</option>
+                    <option value="Теннис">🎾 Теннис</option>
+                    <option value="Легкая атлетика">🏃 Легкая атлетика</option>
+                    <option value="Плавание">🏊 Плавание</option>
+                    <option value="Бокс">🥊 Бокс</option>
+                    <option value="Борьба">🤼 Борьба</option>
+                    <option value="Гимнастика">🤸 Гимнастика</option>
+                    <option value="ОФП">💪 ОФП</option>
+                    <option value="Кроссфит">🏆 Кроссфит</option>
+                    <option value="Другое">📌 Другое</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">📍 Место проведения</label>
+                  <input
+                    type="text"
+                    placeholder="Например: Спортзал №1"
+                    value={formData.location}
+                    onChange={(e) =>
+                      setFormData({ ...formData, location: e.target.value })
                     }
                     className="form-input"
                   />
                 </div>
               </div>
+
               <div className="form-group">
-                <textarea
-                  placeholder="Описание тренировки"
-                  value={newTraining.description}
+                <label className="form-label">👥 Максимум участников</label>
+                <input
+                  type="number"
+                  placeholder="20 (оставьте пустым если без ограничений)"
+                  value={formData.maxParticipants}
                   onChange={(e) =>
-                    setNewTraining({
-                      ...newTraining,
-                      description: e.target.value,
+                    setFormData({
+                      ...formData,
+                      maxParticipants: parseInt(e.target.value),
                     })
                   }
                   className="form-input"
-                  rows="3"
                 />
               </div>
-              <button type="submit" className="btn-primary">
-                Создать
-              </button>
+
+              <div className="form-group">
+                <label className="form-label">📝 Описание тренировки</label>
+                <textarea
+                  placeholder="Опишите что будет на тренировке, какие упражнения..."
+                  value={formData.description}
+                  onChange={(e) =>
+                    setFormData({ ...formData, description: e.target.value })
+                  }
+                  className="form-input"
+                  rows="4"
+                />
+              </div>
+
+              <div className="form-actions">
+                <button type="submit" className="btn-primary btn-block">
+                  {editingTraining
+                    ? "💾 Сохранить изменения"
+                    : "✅ Создать тренировку"}
+                </button>
+                <button
+                  type="button"
+                  className="btn-outline btn-block"
+                  onClick={() => {
+                    setShowCreateForm(false);
+                    setEditingTraining(null);
+                  }}
+                >
+                  ❌ Отмена
+                </button>
+              </div>
             </form>
           </div>
         )}
@@ -302,20 +378,13 @@ const TrainingsPage = () => {
         ) : (
           <div className="trainings-grid">
             {trainings.map((training) => (
-              <div
-                key={training.id}
-                className="training-card"
-                onClick={() => navigate(`/trainings/${training.id}`)}
-                style={{ cursor: "pointer" }}
-              >
+              <div key={training.id} className="training-card">
                 <div className="training-header">
                   <h3>{training.title}</h3>
-                  <span
-                    className={`status-badge ${getStatusClass(
-                      training.trainingDate
-                    )}`}
-                  >
-                    {getStatusText(training.trainingDate)}
+                  <span className="status-badge upcoming">
+                    {new Date(training.trainingDate) > new Date()
+                      ? "Предстоит"
+                      : "Завершена"}
                   </span>
                 </div>
                 <div className="training-info">
@@ -346,17 +415,42 @@ const TrainingsPage = () => {
                       {training.maxParticipants || "∞"}
                     </span>
                   </div>
-                  {training.description && (
-                    <div className="info-row description">
-                      <span className="info-icon">📝</span>
-                      <p>{training.description}</p>
-                    </div>
-                  )}
                 </div>
-                {isLoggedIn &&
-                  userRole === "ATHLETE" &&
-                  new Date(training.trainingDate) > new Date() && (
-                    <div className="training-actions">
+                <div className="training-actions">
+                  {userRole === "COACH" && (
+                    <>
+                      <button
+                        className="btn-outline"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          loadParticipants(training);
+                        }}
+                      >
+                        👥 Участники ({training.currentParticipants || 0})
+                      </button>
+                      <button
+                        className="btn-outline"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleEdit(training);
+                        }}
+                      >
+                        ✏️
+                      </button>
+                      <button
+                        className="btn-danger"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDelete(training.id);
+                        }}
+                      >
+                        🗑️
+                      </button>
+                    </>
+                  )}
+
+                  {userRole === "ATHLETE" && (
+                    <>
                       <button
                         className="btn-primary"
                         onClick={(e) => {
@@ -375,13 +469,63 @@ const TrainingsPage = () => {
                       >
                         Отменить
                       </button>
-                    </div>
+                    </>
                   )}
+                </div>
               </div>
             ))}
           </div>
         )}
       </main>
+
+      {/* Модальное окно с участниками */}
+      {showParticipantsModal && (
+        <div
+          className="modal-overlay"
+          onClick={() => setShowParticipantsModal(false)}
+        >
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>👥 Участники тренировки</h3>
+              <button
+                className="modal-close"
+                onClick={() => setShowParticipantsModal(false)}
+              >
+                ✕
+              </button>
+            </div>
+            <h4>{selectedTraining?.title}</h4>
+            <p className="modal-subtitle">
+              {formatDate(selectedTraining?.trainingDate)} •{" "}
+              {selectedTraining?.sportType}
+            </p>
+
+            {participants.length === 0 ? (
+              <div className="no-data">
+                <p>Пока никто не записался</p>
+              </div>
+            ) : (
+              <div className="participants-list">
+                {participants.map((p, index) => (
+                  <div key={p.id || index} className="participant-item">
+                    <div className="participant-number">{index + 1}</div>
+                    <div className="participant-icon">🏃</div>
+                    <div className="participant-info">
+                      <div className="participant-name">{p.fullName}</div>
+                      <div className="participant-details">
+                        <span>{p.sportType}</span>
+                        {p.rank && <span>• {p.rank}</span>}
+                        <span>• {p.email}</span>
+                      </div>
+                    </div>
+                    <div className="participant-badge present">Записан</div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -32,9 +32,9 @@ const LoginPage = () => {
 
       const data = await response.json();
 
-      localStorage.setItem("accessToken", data.accessToken);
-      localStorage.setItem("refreshToken", data.refreshToken);
-
+      sessionStorage.setItem("accessToken", data.accessToken);
+      sessionStorage.setItem("refreshToken", data.refreshToken);
+      window.dispatchEvent(new Event("authChange"));
       alert("Вы успешно вошли!");
       navigate("/");
     } catch (err) {

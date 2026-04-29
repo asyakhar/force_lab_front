@@ -1,6 +1,3 @@
-// frontend/src/pages/RegisterPage.jsx
-// Добавьте в форму поле для выбора роли
-
 import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import API_CONFIG from "../config";
@@ -18,7 +15,7 @@ const RegisterPage = () => {
     rank: "",
     heightCm: "",
     weightKg: "",
-    role: "ATHLETE", // Добавляем поле роли
+    role: "ATHLETE",
   });
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -44,7 +41,7 @@ const RegisterPage = () => {
         heightCm: formData.heightCm ? parseInt(formData.heightCm) : null,
         weightKg: formData.weightKg ? parseFloat(formData.weightKg) : null,
         coachId: null,
-        role: formData.role, // Добавляем роль в запрос
+        role: formData.role,
       };
 
       const response = await fetch(`${API_CONFIG.baseURL}/api/auth/register`, {
@@ -60,8 +57,9 @@ const RegisterPage = () => {
 
       const data = await response.json();
 
-      localStorage.setItem("accessToken", data.accessToken);
-      localStorage.setItem("refreshToken", data.refreshToken);
+      sessionStorage.setItem("accessToken", data.accessToken);
+      sessionStorage.setItem("refreshToken", data.refreshToken);
+      window.dispatchEvent(new Event("authChange"));
 
       alert("Регистрация успешна!");
       navigate("/");
