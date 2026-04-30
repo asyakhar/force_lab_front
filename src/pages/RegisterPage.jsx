@@ -1,10 +1,12 @@
 import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import API_CONFIG from "../config";
+import { useNotification } from "../components/Notification";
 import "./RegisterPage.css";
 
 const RegisterPage = () => {
   const navigate = useNavigate();
+  const { addNotification } = useNotification();
   const [formData, setFormData] = useState({
     email: "",
     password: "",
@@ -61,7 +63,7 @@ const RegisterPage = () => {
       sessionStorage.setItem("refreshToken", data.refreshToken);
       window.dispatchEvent(new Event("authChange"));
 
-      alert("Регистрация успешна!");
+      addNotification("Регистрация успешна!", "success");
       navigate("/");
     } catch (err) {
       setError(err.message);

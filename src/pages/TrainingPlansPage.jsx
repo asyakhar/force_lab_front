@@ -2,10 +2,13 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { fetchWithAuth } from "../api";
 import { useAuth } from "../context/AuthContext";
+import { useNotification } from "../components/Notification";
+
 import "./TrainingPlansPage.css";
 
 const TrainingPlansPage = () => {
   const navigate = useNavigate();
+  const { addNotification } = useNotification();
   const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(true);
   const { triggerUpdate } = useAuth();
@@ -81,7 +84,7 @@ const TrainingPlansPage = () => {
 
       fetchPlans();
     } catch (err) {
-      alert(err.message);
+      addNotification(err.message, "error");
     }
   };
 
@@ -105,7 +108,7 @@ const TrainingPlansPage = () => {
         throw new Error("Ошибка выполнения задания");
       }
 
-      alert("Задание отмечено как выполненное!");
+      addNotification("Задание отмечено как выполненное!", "success");
 
       // Обновляем список и детальный просмотр
       fetchPlans();
@@ -119,7 +122,7 @@ const TrainingPlansPage = () => {
         }
       }
     } catch (err) {
-      alert(err.message);
+      addNotification(err.message, "error");
     }
   };
 

@@ -2,10 +2,12 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { fetchWithAuth } from "../api";
 import { useAuth } from "../context/AuthContext";
+import { useNotification } from "../components/Notification";
 import "./ProgressPage.css";
 
 const ProgressPage = () => {
   const navigate = useNavigate();
+  const { addNotification } = useNotification();
   const [progressData, setProgressData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -111,7 +113,7 @@ const ProgressPage = () => {
         throw new Error(errorData || "Ошибка добавления рекорда");
       }
 
-      alert("Рекорд успешно добавлен!");
+      addNotification("Рекорд успешно добавлен!", "success");
       setShowAddRecord(false);
       setNewRecord({
         exerciseName: "",
@@ -124,7 +126,7 @@ const ProgressPage = () => {
       // Обновляем данные
       fetchProgress(athleteId);
     } catch (err) {
-      alert(err.message);
+      addNotification(err.message, "error");
     }
   };
 

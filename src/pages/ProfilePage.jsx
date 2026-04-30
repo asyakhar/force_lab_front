@@ -3,9 +3,11 @@ import { useNavigate } from "react-router-dom";
 import { fetchWithAuth } from "../api";
 import "./ProfilePage.css";
 import { useAuth } from "../context/AuthContext";
+import { useNotification } from "../components/Notification";
 
 const ProfilePage = () => {
   const navigate = useNavigate();
+  const { addNotification } = useNotification();
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -59,11 +61,11 @@ const ProfilePage = () => {
 
       if (!response.ok) throw new Error("Ошибка обновления профиля");
 
-      alert("Профиль обновлен!");
+      addNotification("Профиль обновлен!", "info");
       setIsEditing(false);
       fetchProfile();
     } catch (err) {
-      alert(err.message);
+      addNotification(err.message, "error");
     }
   };
 

@@ -2,11 +2,13 @@ import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { fetchWithAuth } from "../api";
 import { useAuth } from "../context/AuthContext";
+import { useNotification } from "../components/Notification";
 import "./TrainingsPage.css";
 
 const TrainingsPage = () => {
   const navigate = useNavigate();
-  const { isLoggedIn, userRole, triggerUpdate } = useAuth();
+  const { addNotification } = useNotification();
+  const { isLoggedIn, userRole, userData, triggerUpdate } = useAuth();
   const [trainings, setTrainings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -75,14 +77,14 @@ const TrainingsPage = () => {
         { method: "DELETE" }
       );
       if (!response.ok) throw new Error("Ошибка удаления");
-      alert("Тренировка удалена");
+      addNotification("Тренировка удалена", "info");
       fetchTrainings();
     } catch (err) {
-      alert(err.message);
+      addNotification(err.message, "error");
     }
   };
 
-  const loadParticipants = async (training) => {
+  const loadParticipants = useCallback(async (training) => {
     setSelectedTraining(training);
     try {
       const response = await fetchWithAuth(
@@ -96,7 +98,40 @@ const TrainingsPage = () => {
       console.error("Ошибка загрузки участников");
     }
     setShowParticipantsModal(true);
-  };
+  }, []);
+
+  // ← SSE через useEffect
+  useEffect(() => {
+    const userId = userData?.sub;
+    if (!userId) return;
+
+    const eventSource = new EventSource(
+      `http://localhost:8080/api/sse/subscribe?userId=${userId}`
+    );
+
+    eventSource.addEventListener("training-updated", () => {
+      fetchTrainings();
+      if (showParticipantsModal && selectedTraining) {
+        loadParticipants(selectedTraining);
+      }
+    });
+
+    eventSource.addEventListener("participant-added", () => {
+      fetchTrainings();
+    });
+
+    eventSource.onerror = () => {
+      console.log("SSE ошибка, переподключение...");
+    };
+
+    return () => eventSource.close();
+  }, [
+    userData,
+    fetchTrainings,
+    showParticipantsModal,
+    selectedTraining,
+    loadParticipants,
+  ]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -114,7 +149,10 @@ const TrainingsPage = () => {
 
       if (!response.ok) throw new Error("Ошибка сохранения");
 
-      alert(editingTraining ? "Тренировка обновлена!" : "Тренировка создана!");
+      addNotification(
+        editingTraining ? "Тренировка обновлена!" : "Тренировка создана!",
+        "success"
+      );
       setShowCreateForm(false);
       setEditingTraining(null);
       setFormData({
@@ -128,13 +166,16 @@ const TrainingsPage = () => {
       });
       fetchTrainings();
     } catch (err) {
-      alert(err.message);
+      addNotification(err.message, "error");
     }
   };
 
   const handleRegister = async (trainingId) => {
     if (!isLoggedIn) {
-      alert("Для записи на тренировку необходимо войти в систему");
+      addNotification(
+        "Для записи на тренировку необходимо войти в систему",
+        "info"
+      );
       navigate("/login");
       return;
     }
@@ -148,10 +189,10 @@ const TrainingsPage = () => {
         const errorText = await response.text();
         throw new Error(errorText || "Ошибка регистрации");
       }
-      alert("Вы успешно зарегистрированы на тренировку!");
+      addNotification("Вы успешно зарегистрированы на тренировку!", "success");
       fetchTrainings();
     } catch (err) {
-      alert(err.message);
+      addNotification(err.message, "error");
     }
   };
 
@@ -162,10 +203,14 @@ const TrainingsPage = () => {
         { method: "DELETE" }
       );
       if (!response.ok) throw new Error("Ошибка отмены");
-      alert("Регистрация отменена");
-      fetchTrainings();
+      addNotification("Регистрация отменена", "info");
+
+      await fetchTrainings();
+      if (showParticipantsModal) {
+        await loadParticipants(selectedTraining);
+      }
     } catch (err) {
-      alert(err.message);
+      addNotification(err.message, "error");
     }
   };
 
@@ -233,12 +278,12 @@ const TrainingsPage = () => {
           <div className="create-training-form">
             <h3>
               {editingTraining
-                ? "✏️ Редактирование тренировки"
-                : "➕ Создание новой тренировки"}
+                ? "Редактирование тренировки"
+                : "Создание новой тренировки"}
             </h3>
             <form onSubmit={handleSubmit}>
               <div className="form-group">
-                <label className="form-label">📌 Название тренировки *</label>
+                <label className="form-label">Название тренировки *</label>
                 <input
                   type="text"
                   placeholder="Например: Силовая тренировка для пловцов"
@@ -253,7 +298,7 @@ const TrainingsPage = () => {
 
               <div className="form-row">
                 <div className="form-group">
-                  <label className="form-label">📅 Дата и время *</label>
+                  <label className="form-label">Дата и время *</label>
                   <input
                     type="datetime-local"
                     value={formData.trainingDate}
@@ -265,7 +310,7 @@ const TrainingsPage = () => {
                   />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">⏱️ Длительность (мин)</label>
+                  <label className="form-label">Длительность (мин)</label>
                   <input
                     type="number"
                     placeholder="60"
@@ -283,7 +328,7 @@ const TrainingsPage = () => {
 
               <div className="form-row">
                 <div className="form-group">
-                  <label className="form-label">🏋️ Вид спорта *</label>
+                  <label className="form-label">Вид спорта *</label>
                   <select
                     value={formData.sportType}
                     onChange={(e) =>
@@ -293,22 +338,22 @@ const TrainingsPage = () => {
                     className="form-input"
                   >
                     <option value="">Выберите вид спорта...</option>
-                    <option value="Футбол">⚽ Футбол</option>
-                    <option value="Баскетбол">🏀 Баскетбол</option>
-                    <option value="Волейбол">🏐 Волейбол</option>
-                    <option value="Теннис">🎾 Теннис</option>
-                    <option value="Легкая атлетика">🏃 Легкая атлетика</option>
-                    <option value="Плавание">🏊 Плавание</option>
-                    <option value="Бокс">🥊 Бокс</option>
-                    <option value="Борьба">🤼 Борьба</option>
-                    <option value="Гимнастика">🤸 Гимнастика</option>
-                    <option value="ОФП">💪 ОФП</option>
-                    <option value="Кроссфит">🏆 Кроссфит</option>
-                    <option value="Другое">📌 Другое</option>
+                    <option value="Футбол">Футбол</option>
+                    <option value="Баскетбол">Баскетбол</option>
+                    <option value="Волейбол">Волейбол</option>
+                    <option value="Теннис">Теннис</option>
+                    <option value="Легкая атлетика">Легкая атлетика</option>
+                    <option value="Плавание">Плавание</option>
+                    <option value="Бокс">Бокс</option>
+                    <option value="Борьба">Борьба</option>
+                    <option value="Гимнастика">Гимнастика</option>
+                    <option value="ОФП">ОФП</option>
+                    <option value="Кроссфит">Кроссфит</option>
+                    <option value="Другое">Другое</option>
                   </select>
                 </div>
                 <div className="form-group">
-                  <label className="form-label">📍 Место проведения</label>
+                  <label className="form-label">Место проведения</label>
                   <input
                     type="text"
                     placeholder="Например: Спортзал №1"
@@ -322,7 +367,7 @@ const TrainingsPage = () => {
               </div>
 
               <div className="form-group">
-                <label className="form-label">👥 Максимум участников</label>
+                <label className="form-label">Максимум участников</label>
                 <input
                   type="number"
                   placeholder="20 (оставьте пустым если без ограничений)"
@@ -338,7 +383,7 @@ const TrainingsPage = () => {
               </div>
 
               <div className="form-group">
-                <label className="form-label">📝 Описание тренировки</label>
+                <label className="form-label">Описание тренировки</label>
                 <textarea
                   placeholder="Опишите что будет на тренировке, какие упражнения..."
                   value={formData.description}
@@ -353,8 +398,8 @@ const TrainingsPage = () => {
               <div className="form-actions">
                 <button type="submit" className="btn-primary btn-block">
                   {editingTraining
-                    ? "💾 Сохранить изменения"
-                    : "✅ Создать тренировку"}
+                    ? "Сохранить изменения"
+                    : "Создать тренировку"}
                 </button>
                 <button
                   type="button"
@@ -364,7 +409,7 @@ const TrainingsPage = () => {
                     setEditingTraining(null);
                   }}
                 >
-                  ❌ Отмена
+                  Отмена
                 </button>
               </div>
             </form>
@@ -379,99 +424,138 @@ const TrainingsPage = () => {
           <div className="trainings-grid">
             {trainings.map((training) => (
               <div key={training.id} className="training-card">
-                <div className="training-header">
+                <div className="training-card-top">
                   <h3>{training.title}</h3>
-                  <span className="status-badge upcoming">
-                    {new Date(training.trainingDate) > new Date()
-                      ? "Предстоит"
-                      : "Завершена"}
-                  </span>
+                  <div className="training-meta">
+                    <div className="training-sport">
+                      <span className="training-sport-dot"></span>
+                      {training.sportType}
+                    </div>
+                  </div>
                 </div>
-                <div className="training-info">
-                  <div className="info-row">
-                    <span className="info-icon">📅</span>
+
+                <div className="training-card-body">
+                  <div className="training-info-row">
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                      <line x1="16" y1="2" x2="16" y2="6" />
+                      <line x1="8" y1="2" x2="8" y2="6" />
+                      <line x1="3" y1="10" x2="21" y2="10" />
+                    </svg>
                     <span>{formatDate(training.trainingDate)}</span>
                   </div>
-                  <div className="info-row">
-                    <span className="info-icon">⏱️</span>
+                  <div className="training-info-row">
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <circle cx="12" cy="12" r="10" />
+                      <polyline points="12 6 12 12 16 14" />
+                    </svg>
                     <span>{training.durationMinutes} минут</span>
                   </div>
-                  <div className="info-row">
-                    <span className="info-icon">📍</span>
+                  <div className="training-info-row">
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                      <circle cx="12" cy="10" r="3" />
+                    </svg>
                     <span>{training.location || "Не указано"}</span>
                   </div>
-                  <div className="info-row">
-                    <span className="info-icon">🏋️‍♂️</span>
-                    <span>{training.sportType}</span>
-                  </div>
-                  <div className="info-row">
-                    <span className="info-icon">👤</span>
-                    <span>Тренер: {training.coachName || "Не назначен"}</span>
-                  </div>
-                  <div className="info-row">
-                    <span className="info-icon">👥</span>
-                    <span>
-                      Участники: {training.currentParticipants || 0} /{" "}
-                      {training.maxParticipants || "∞"}
-                    </span>
-                  </div>
                 </div>
-                <div className="training-actions">
-                  {userRole === "COACH" && (
-                    <>
-                      <button
-                        className="btn-outline"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          loadParticipants(training);
-                        }}
-                      >
-                        👥 Участники ({training.currentParticipants || 0})
-                      </button>
-                      <button
-                        className="btn-outline"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleEdit(training);
-                        }}
-                      >
-                        ✏️
-                      </button>
-                      <button
-                        className="btn-danger"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDelete(training.id);
-                        }}
-                      >
-                        🗑️
-                      </button>
-                    </>
-                  )}
 
-                  {userRole === "ATHLETE" && (
-                    <>
-                      <button
-                        className="btn-primary"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleRegister(training.id);
-                        }}
-                      >
-                        Записаться
-                      </button>
-                      <button
-                        className="btn-outline"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleCancel(training.id);
-                        }}
-                      >
-                        Отменить
-                      </button>
-                    </>
-                  )}
+                <div className="training-card-bottom">
+                  <div className="training-coach">
+                    <div className="training-coach-avatar">
+                      {(training.coachName || "Т")[0]}
+                    </div>
+                    {training.coachName || "Тренер не назначен"}
+                  </div>
+                  <div className="training-participants">
+                    {training.currentParticipants || 0}/
+                    {training.maxParticipants || "∞"}
+                  </div>
                 </div>
+
+                {(userRole === "COACH" || userRole === "ATHLETE") && (
+                  <div className="training-actions">
+                    {userRole === "COACH" && (
+                      <>
+                        <button
+                          className="btn-action btn-action-outline"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            loadParticipants(training);
+                          }}
+                        >
+                          Участники ({training.currentParticipants || 0})
+                        </button>
+                        <div className="training-icons">
+                          <button
+                            className="btn-icon"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleEdit(training);
+                            }}
+                            title="Редактировать"
+                          >
+                            ✎
+                          </button>
+                          <button
+                            className="btn-icon"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDelete(training.id);
+                            }}
+                            title="Удалить"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      </>
+                    )}
+
+                    {userRole === "ATHLETE" && (
+                      <>
+                        <button
+                          className="btn-action btn-action-primary"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRegister(training.id);
+                          }}
+                        >
+                          Записаться
+                        </button>
+                        <button
+                          className="btn-action btn-action-outline"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleCancel(training.id);
+                          }}
+                        >
+                          Отменить
+                        </button>
+                      </>
+                    )}
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -512,11 +596,7 @@ const TrainingsPage = () => {
                     <div className="participant-icon">🏃</div>
                     <div className="participant-info">
                       <div className="participant-name">{p.fullName}</div>
-                      <div className="participant-details">
-                        <span>{p.sportType}</span>
-                        {p.rank && <span>• {p.rank}</span>}
-                        <span>• {p.email}</span>
-                      </div>
+                      <div className="participant-details"></div>
                     </div>
                     <div className="participant-badge present">Записан</div>
                   </div>

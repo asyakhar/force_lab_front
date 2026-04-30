@@ -2,11 +2,13 @@ import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { fetchWithAuth } from "../api";
 import { useAuth } from "../context/AuthContext";
+import { useNotification } from "../components/Notification";
 import "./MyTrainingsPage.css";
 
 const MyTrainingsPage = () => {
   const navigate = useNavigate();
-  const { triggerUpdate } = useAuth();
+  const { addNotification } = useNotification();
+  const { userData, triggerUpdate } = useAuth();
   const [myTrainings, setMyTrainings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -31,6 +33,53 @@ const MyTrainingsPage = () => {
     }
   }, []);
 
+  const getUserId = () => {
+    const token = sessionStorage.getItem("accessToken");
+    if (token) {
+      try {
+        const payload = JSON.parse(atob(token.split(".")[1]));
+        return payload.sub; // или payload.userId
+      } catch (e) {}
+    }
+    return null;
+  };
+
+  const userId = getUserId();
+
+  useEffect(() => {
+    if (!userId) return;
+
+    console.log("Подключаем SSE для userId:", userId);
+
+    const eventSource = new EventSource(
+      `http://localhost:8080/api/sse/subscribe?userId=${userId}`
+    );
+
+    eventSource.onopen = () => {
+      console.log("SSE подключено");
+    };
+
+    eventSource.addEventListener("training-updated", () => {
+      console.log("Обновление тренировок");
+      fetchMyTrainings();
+    });
+
+    eventSource.addEventListener("attendance-marked", (event) => {
+      const data = JSON.parse(event.data);
+      fetchMyTrainings();
+      if (data.message) addNotification(data.message, "info");
+    });
+
+    eventSource.onerror = (error) => {
+      console.log("SSE ошибка, переподключение...");
+    };
+
+    return () => {
+      eventSource.close();
+      console.log("SSE отключено");
+    };
+  }, [userId]);
+
   useEffect(() => {
     fetchMyTrainings();
   }, [triggerUpdate]);
@@ -49,10 +98,11 @@ const MyTrainingsPage = () => {
         { method: "DELETE" }
       );
       if (!response.ok) throw new Error("Ошибка отмены");
-      alert("Регистрация отменена");
-      fetchMyTrainings();
+      addNotification("Регистрация отменена", "info");
+
+      await fetchMyTrainings();
     } catch (err) {
-      alert(err.message);
+      addNotification(err.message, "error");
     }
   };
 
@@ -103,15 +153,15 @@ const MyTrainingsPage = () => {
       </header>
 
       <main className="container">
-        <h1 className="page-title">📅 Мои тренировки</h1>
+        <h1 className="page-title">Мои тренировки</h1>
 
-        {/* Табы */}
+        {/* Табы - оставить старые */}
         <div className="tabs">
           <button
             className={`tab ${activeTab === "active" ? "active" : ""}`}
             onClick={() => setActiveTab("active")}
           >
-            🟢 Активные (
+            Активные (
             {
               myTrainings.filter((t) => new Date(t.trainingDate) > new Date())
                 .length
@@ -122,7 +172,7 @@ const MyTrainingsPage = () => {
             className={`tab ${activeTab === "completed" ? "active" : ""}`}
             onClick={() => setActiveTab("completed")}
           >
-            ✅ Завершенные (
+            Завершенные (
             {
               myTrainings.filter((t) => new Date(t.trainingDate) <= new Date())
                 .length
@@ -131,7 +181,6 @@ const MyTrainingsPage = () => {
           </button>
         </div>
 
-        {/* Список тренировок */}
         {filteredTrainings.length === 0 ? (
           <div className="no-data">
             <p>
@@ -143,30 +192,79 @@ const MyTrainingsPage = () => {
           <div className="trainings-list">
             {filteredTrainings.map((training) => (
               <div key={training.id} className="training-item">
-                <div className="training-status">
-                  {new Date(training.trainingDate) > new Date() ? "🟢" : "✅"}
-                </div>
-                <div className="training-content">
-                  <h3>{training.title}</h3>
-                  <div className="training-details">
-                    <span>📅 {formatDate(training.trainingDate)}</span>
-                    <span>⏱️ {training.durationMinutes} мин</span>
-                    <span>📍 {training.location || "Не указано"}</span>
-                    <span>🏋️ {training.sportType}</span>
-                    <span>👨‍🏫 {training.coachName || "Тренер не назначен"}</span>
+                <div className="training-item-left">
+                  <div className="training-date-badge">
+                    <span className="date-day">
+                      {new Date(training.trainingDate).getDate()}
+                    </span>
+                    <span className="date-month">
+                      {new Date(training.trainingDate).toLocaleString("ru-RU", {
+                        month: "short",
+                      })}
+                    </span>
                   </div>
+                </div>
+
+                <div className="training-item-body">
+                  <div className="training-item-header">
+                    <h3>{training.title}</h3>
+                    <span className="training-sport-tag">
+                      {training.sportType}
+                    </span>
+                  </div>
+
+                  <div className="training-item-meta">
+                    <svg
+                      width="13"
+                      height="13"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                    >
+                      <circle cx="12" cy="12" r="10" />
+                      <polyline points="12 6 12 12 16 14" />
+                    </svg>
+                    <span>
+                      {new Date(training.trainingDate).toLocaleString("ru-RU", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </span>
+                    <span className="meta-sep">·</span>
+                    <span>{training.durationMinutes} мин</span>
+                    {training.location && <span className="meta-sep">·</span>}
+                    {training.location && <span>{training.location}</span>}
+                  </div>
+
+                  <div className="training-item-meta">
+                    <svg
+                      width="13"
+                      height="13"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                    >
+                      <circle cx="12" cy="8" r="4" />
+                      <path d="M4 20c0-4 4-7 8-7s8 3 8 7" />
+                    </svg>
+                    <span>{training.coachName || "Тренер не назначен"}</span>
+                  </div>
+
                   {training.description && (
-                    <p className="training-description">
-                      {training.description}
-                    </p>
+                    <p className="training-item-desc">{training.description}</p>
                   )}
                 </div>
+
                 {new Date(training.trainingDate) > new Date() && (
                   <button
                     className="btn-cancel"
                     onClick={() => handleCancelRegistration(training.id)}
                   >
-                    Отменить запись
+                    Отменить
                   </button>
                 )}
               </div>

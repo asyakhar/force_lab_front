@@ -4,6 +4,74 @@ import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import "./MainPage.css";
 
+// SVG иконки для Features секции
+const FeatureIcons = {
+  individual: (
+    <svg
+      width="32"
+      height="32"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+      <circle cx="12" cy="7" r="4" />
+    </svg>
+  ),
+  progress: (
+    <svg
+      width="32"
+      height="32"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <line x1="18" y1="20" x2="18" y2="10" />
+      <line x1="12" y1="20" x2="12" y2="4" />
+      <line x1="6" y1="20" x2="6" y2="14" />
+    </svg>
+  ),
+  coach: (
+    <svg
+      width="32"
+      height="32"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+      <circle cx="9" cy="7" r="4" />
+      <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+    </svg>
+  ),
+  online: (
+    <svg
+      width="32"
+      height="32"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <circle cx="12" cy="12" r="10" />
+      <line x1="2" y1="12" x2="22" y2="12" />
+      <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+    </svg>
+  ),
+};
+
 const MainPage = () => {
   const navigate = useNavigate();
   const { isLoggedIn, userRole, logout, updateTrigger } = useAuth();
@@ -23,6 +91,9 @@ const MainPage = () => {
               <span className="logo-text">FORCE LAB</span>
             </div>
             <div className="nav-links">
+              <Link to="/" className="nav-link">
+                Главная
+              </Link>
               <Link to="/trainings" className="nav-link">
                 Программы
               </Link>
@@ -147,9 +218,6 @@ const MainPage = () => {
                 <li>Профилактика травм плечевого сустава</li>
                 <li>Восстановительный блок</li>
               </ul>
-              <Link to="/trainings" className="program-link">
-                Выбрать программу →
-              </Link>
             </div>
 
             {/* Тренеры */}
@@ -165,9 +233,6 @@ const MainPage = () => {
                 <li>Практикум по профилактике травм</li>
                 <li>Восстановление и реабилитация</li>
               </ul>
-              <Link to="/trainings" className="program-link">
-                Подробнее →
-              </Link>
             </div>
 
             {/* Юные спортсмены */}
@@ -182,9 +247,6 @@ const MainPage = () => {
                 <li>Развитие координации и гибкости</li>
                 <li>Базовые навыки для любого вида спорта</li>
               </ul>
-              <Link to="/trainings" className="program-link">
-                Записаться →
-              </Link>
             </div>
           </div>
         </div>
@@ -195,12 +257,12 @@ const MainPage = () => {
         <div className="container">
           <div className="features-grid">
             <div className="feature-item">
-              <div className="feature-icon">🎯</div>
+              <div className="feature-icon">{FeatureIcons.individual}</div>
               <h4>Индивидуальный подход</h4>
               <p>Программы подбираются под ваши цели и уровень подготовки</p>
             </div>
             <div className="feature-item">
-              <div className="feature-icon">📊</div>
+              <div className="feature-icon">{FeatureIcons.progress}</div>
               <h4>Отслеживание прогресса</h4>
               <p>
                 Ведите статистику, анализируйте результаты и улучшайте
@@ -208,12 +270,12 @@ const MainPage = () => {
               </p>
             </div>
             <div className="feature-item">
-              <div className="feature-icon">💪</div>
+              <div className="feature-icon">{FeatureIcons.coach}</div>
               <h4>Профессиональные тренеры</h4>
               <p>Опытные специалисты с высшим спортивным образованием</p>
             </div>
             <div className="feature-item">
-              <div className="feature-icon">🌍</div>
+              <div className="feature-icon">{FeatureIcons.online}</div>
               <h4>Онлайн формат</h4>
               <p>Занимайтесь из любой точки мира в удобное для вас время</p>
             </div>
@@ -262,12 +324,6 @@ const MainPage = () => {
                 <Link to="/trainings">Для спортсменов</Link>
                 <Link to="/trainings">Для тренеров</Link>
                 <Link to="/trainings">Для юных спортсменов</Link>
-              </div>
-              <div className="footer-column">
-                <h4>Соцсети</h4>
-                <a href="#">Instagram</a>
-                <a href="#">Telegram</a>
-                <a href="#">YouTube</a>
               </div>
             </div>
           </div>

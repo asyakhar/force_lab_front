@@ -1,12 +1,14 @@
 import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import API_CONFIG from "../config";
+import { useNotification } from "../components/Notification";
 import "./LoginPage.css";
 
 const LoginPage = () => {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({ email: "", password: "" });
   const [error, setError] = useState(null);
+  const { addNotification } = useNotification();
   const [loading, setLoading] = useState(false);
 
   const handleChange = (e) => {
@@ -35,7 +37,7 @@ const LoginPage = () => {
       sessionStorage.setItem("accessToken", data.accessToken);
       sessionStorage.setItem("refreshToken", data.refreshToken);
       window.dispatchEvent(new Event("authChange"));
-      alert("Вы успешно вошли!");
+      addNotification("Вы успешно вошли!", "success");
       navigate("/");
     } catch (err) {
       setError(err.message);
