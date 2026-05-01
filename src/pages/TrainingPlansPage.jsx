@@ -110,7 +110,6 @@ const TrainingPlansPage = () => {
 
       addNotification("Задание отмечено как выполненное!", "success");
 
-      // Обновляем список и детальный просмотр
       fetchPlans();
       if (selectedPlan) {
         const response = await fetchWithAuth(
@@ -134,7 +133,6 @@ const TrainingPlansPage = () => {
   if (loading) return <div className="loading">Загрузка планов...</div>;
   if (error) return <div className="error">{error}</div>;
 
-  // Детальный просмотр плана
   if (selectedPlan) {
     return (
       <div className="training-plans-page">
@@ -279,7 +277,6 @@ const TrainingPlansPage = () => {
     );
   }
 
-  // Список планов
   return (
     <div className="training-plans-page">
       <header className="header">

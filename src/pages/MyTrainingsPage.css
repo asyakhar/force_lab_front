@@ -84,7 +84,10 @@
   background: linear-gradient(135deg, #1e3c72, #2a5298);
   color: white;
 }
-
+.status-attended { color: #16a34a; }
+.status-late { color: #ca8a04; }
+.status-absent { color: #ef4444; }
+.status-registered { color: #64748b; }
 .tab-count {
   font-size: 0.75rem;
   background: #e2e8f0;

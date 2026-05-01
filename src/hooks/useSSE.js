@@ -6,14 +6,14 @@ export const useSSE = (userId, onMessage) => {
     useEffect(() => {
         if (!userId) return;
 
-        // Подключаемся к SSE
+
         const eventSource = new EventSource(
             `http://localhost:8080/api/sse/subscribe?userId=${userId}`
         );
         eventSourceRef.current = eventSource;
 
         eventSource.onopen = () => {
-            console.log("🟢 SSE подключено");
+            console.log("SSE подключено");
         };
 
         eventSource.onmessage = (event) => {
@@ -25,30 +25,30 @@ export const useSSE = (userId, onMessage) => {
             }
         };
 
-        // Слушаем конкретные события
+
         eventSource.addEventListener("training-updated", (event) => {
-            console.log("📅 Обновление тренировок:", event.data);
+            console.log("Обновление тренировок:", event.data);
             onMessage("training-updated", JSON.parse(event.data));
         });
 
         eventSource.addEventListener("participant-added", (event) => {
-            console.log("👤 Новый участник:", event.data);
+            console.log("Новый участник:", event.data);
             onMessage("participant-added", JSON.parse(event.data));
         });
 
         eventSource.addEventListener("attendance-marked", (event) => {
-            console.log("✅ Посещение отмечено:", event.data);
+            console.log("Посещение отмечено:", event.data);
             onMessage("attendance-marked", JSON.parse(event.data));
         });
 
         eventSource.onerror = (error) => {
-            console.error("🔴 SSE ошибка:", error);
-            // Переподключение произойдет автоматически
+            console.error(" SSE ошибка:", error);
+
         };
 
         return () => {
             eventSource.close();
-            console.log("🔴 SSE отключено");
+            console.log("SSE отключено");
         };
     }, [userId]);
 };

@@ -21,7 +21,7 @@ export const AuthProvider = ({ children }) => {
     if (token) {
       try {
         const payload = JSON.parse(atob(token.split(".")[1]));
-        // Проверяем, не истек ли токен
+
         const isExpired = payload.exp * 1000 < Date.now();
         if (!isExpired) {
           setIsLoggedIn(true);
@@ -29,7 +29,6 @@ export const AuthProvider = ({ children }) => {
           setUserData(payload);
           return true;
         } else {
-          // Токен истек, пробуем обновить
           return refreshToken();
         }
       } catch (e) {
@@ -42,7 +41,6 @@ export const AuthProvider = ({ children }) => {
     return false;
   }, []);
 
-  // Обновление токена
   const refreshToken = async () => {
     const refreshTokenValue = sessionStorage.getItem("refreshToken");
     if (!refreshTokenValue) {
@@ -74,7 +72,6 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Выход
   const logout = useCallback(() => {
     sessionStorage.removeItem("accessToken");
     sessionStorage.removeItem("refreshToken");
@@ -93,12 +90,10 @@ export const AuthProvider = ({ children }) => {
     }
   }, []);
 
-  // Функция для принудительного обновления всех компонентов
   const triggerUpdate = useCallback(() => {
     setUpdateTrigger((prev) => prev + 1);
   }, []);
 
-  // Инициализация при первом рендере
   useEffect(() => {
     if (!initialized) {
       checkAuth();
@@ -106,7 +101,6 @@ export const AuthProvider = ({ children }) => {
     }
   }, [initialized, checkAuth]);
 
-  // Слушаем кастомные события
   useEffect(() => {
     window.addEventListener("authChange", checkAuth);
     window.addEventListener("profileUpdate", triggerUpdate);
@@ -135,7 +129,6 @@ export const AuthProvider = ({ children }) => {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
-// Хук для использования контекста
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {

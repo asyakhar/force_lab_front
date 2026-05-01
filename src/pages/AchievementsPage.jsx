@@ -21,10 +21,29 @@ const AchievementsPage = () => {
   useEffect(() => {
     initializePage();
   }, [triggerUpdate]);
+  useEffect(() => {
+    const token = sessionStorage.getItem("accessToken");
+    if (!token || !athleteId) return;
 
+    const payload = JSON.parse(atob(token.split(".")[1]));
+    const userId = payload.sub;
+
+    const eventSource = new EventSource(
+      `http://localhost:8080/api/sse/subscribe?userId=${userId}`
+    );
+
+    eventSource.addEventListener("attendance-marked", () => {
+      fetchAchievements(athleteId);
+    });
+
+    eventSource.addEventListener("training-updated", () => {
+      fetchAchievements(athleteId);
+    });
+
+    return () => eventSource.close();
+  }, [athleteId]);
   const initializePage = async () => {
     try {
-      // Получаем роль из токена
       const token = sessionStorage.getItem("accessToken");
       if (!token) {
         setError("Необходимо войти в систему");
@@ -32,17 +51,14 @@ const AchievementsPage = () => {
         return;
       }
 
-      // ✅ ДОБАВИТЬ: Декодируем токен
       const payload = JSON.parse(atob(token.split(".")[1]));
 
-      // ✅ Теперь проверка работает
       if (payload.role === "COACH") {
         setError("Достижения доступны только для спортсменов");
         setLoading(false);
         return;
       }
 
-      // Получаем профиль спортсмена
       const profileResponse = await fetchWithAuth(
         "http://localhost:8080/api/athletes/profile"
       );
@@ -62,7 +78,6 @@ const AchievementsPage = () => {
       const profileData = await profileResponse.json();
       setAthleteId(profileData.id);
 
-      // Загружаем достижения
       await fetchAchievements(profileData.id);
     } catch (err) {
       setError(err.message);

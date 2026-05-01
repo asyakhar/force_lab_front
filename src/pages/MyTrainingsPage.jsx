@@ -9,16 +9,18 @@ const MyTrainingsPage = () => {
   const navigate = useNavigate();
   const { addNotification } = useNotification();
   const { userData, triggerUpdate } = useAuth();
+
   const [myTrainings, setMyTrainings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [activeTab, setActiveTab] = useState("active"); // active, completed
+  const [activeTab, setActiveTab] = useState("active");
 
   const fetchMyTrainings = useCallback(async () => {
     try {
       setLoading(true);
+
       const response = await fetchWithAuth(
-        "http://localhost:8080/api/trainings/my"
+        "http://localhost:8080/api/trainings/my-with-status"
       );
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
@@ -38,7 +40,7 @@ const MyTrainingsPage = () => {
     if (token) {
       try {
         const payload = JSON.parse(atob(token.split(".")[1]));
-        return payload.sub; // или payload.userId
+        return payload.sub;
       } catch (e) {}
     }
     return null;
@@ -84,7 +86,6 @@ const MyTrainingsPage = () => {
     fetchMyTrainings();
   }, [triggerUpdate]);
 
-  // Автообновление при фокусе
   useEffect(() => {
     const handleFocus = () => fetchMyTrainings();
     window.addEventListener("focus", handleFocus);
@@ -253,7 +254,39 @@ const MyTrainingsPage = () => {
                     </svg>
                     <span>{training.coachName || "Тренер не назначен"}</span>
                   </div>
-
+                  <div className="training-item-meta">
+                    <svg
+                      width="13"
+                      height="13"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                    >
+                      <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                      <polyline points="22 4 12 14.01 9 11.01" />
+                    </svg>
+                    <span
+                      className={
+                        training.status === "ATTENDED"
+                          ? "status-attended"
+                          : training.status === "LATE"
+                          ? "status-late"
+                          : training.status === "ABSENT"
+                          ? "status-absent"
+                          : "status-registered"
+                      }
+                    >
+                      {training.status === "ATTENDED"
+                        ? "Присутствовал"
+                        : training.status === "LATE"
+                        ? "Опоздал"
+                        : training.status === "ABSENT"
+                        ? "Не пришел"
+                        : "Записан"}
+                    </span>
+                  </div>
                   {training.description && (
                     <p className="training-item-desc">{training.description}</p>
                   )}

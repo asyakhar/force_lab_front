@@ -32,7 +32,7 @@ const ProgressPage = () => {
       if (token) {
         const payload = JSON.parse(atob(token.split(".")[1]));
         setUserData(payload);
-        // После получения данных пользователя, загружаем прогресс
+
         fetchProgress(payload.userId || payload.sub);
       }
     } catch (err) {
@@ -43,7 +43,6 @@ const ProgressPage = () => {
 
   const fetchProgress = async (userId) => {
     try {
-      // Получаем athleteId через отдельный endpoint
       const profileResponse = await fetchWithAuth(
         `http://localhost:8080/api/athletes/profile`
       );
@@ -53,8 +52,6 @@ const ProgressPage = () => {
         const profileData = await profileResponse.json();
         athleteId = profileData.id;
       } else {
-        // Если нет эндпоинта профиля, используем временное решение
-        // Нужно создать эндпоинт для получения athleteId по userId
         throw new Error("Не удалось получить профиль спортсмена");
       }
 
@@ -79,7 +76,6 @@ const ProgressPage = () => {
   const handleAddRecord = async (e) => {
     e.preventDefault();
     try {
-      // Получаем athleteId
       const profileResponse = await fetchWithAuth(
         `http://localhost:8080/api/athletes/profile`
       );
@@ -123,7 +119,6 @@ const ProgressPage = () => {
         notes: "",
       });
 
-      // Обновляем данные
       fetchProgress(athleteId);
     } catch (err) {
       addNotification(err.message, "error");

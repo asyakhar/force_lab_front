@@ -12,6 +12,7 @@ const TrainingsPage = () => {
   const [trainings, setTrainings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [trainingFilter, setTrainingFilter] = useState("upcoming");
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [editingTraining, setEditingTraining] = useState(null);
   const [selectedTraining, setSelectedTraining] = useState(null);
@@ -27,13 +28,43 @@ const TrainingsPage = () => {
     sportType: "",
     maxParticipants: 20,
   });
+  const markAttendance = async (trainingId, athleteId, status) => {
+    try {
+      const response = await fetchWithAuth(
+        `http://localhost:8080/api/trainings/${trainingId}/attendance/${athleteId}`,
+        {
+          method: "PUT",
+          body: JSON.stringify({ status }),
+        }
+      );
 
+      // ✅ Сначала пробуем получить JSON с сообщением от сервера
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        // ✅ Показываем сообщение от сервера, а не "Ошибка отметки"
+        throw new Error(data.message || "Ошибка отметки");
+      }
+
+      addNotification(data.message || "Посещение отмечено", "success");
+      loadParticipants(selectedTraining);
+      fetchTrainings();
+    } catch (err) {
+      addNotification(err.message, "error");
+    }
+  };
   const fetchTrainings = useCallback(async () => {
     try {
-      const response = await fetch(
-        "http://localhost:8080/api/trainings/upcoming"
-      );
-      if (!response.ok) throw new Error("Ошибка загрузки тренировок");
+      setError(null);
+      console.log("Загрузка:", trainingFilter);
+
+      const url =
+        trainingFilter === "upcoming"
+          ? "http://localhost:8080/api/trainings/upcoming"
+          : "http://localhost:8080/api/trainings/active-for-marking";
+
+      const response = await fetch(url);
+      if (!response.ok) throw new Error("Ошибка загрузки");
       const data = await response.json();
       setTrainings(data);
     } catch (err) {
@@ -41,18 +72,27 @@ const TrainingsPage = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [trainingFilter]);
 
   useEffect(() => {
+    if (triggerUpdate) {
+      fetchTrainings();
+    }
+  }, [triggerUpdate, fetchTrainings]);
+  useEffect(() => {
     fetchTrainings();
-  }, [triggerUpdate]);
+  }, [fetchTrainings]);
+  const handleFilterChange = (filter) => {
+    setTrainingFilter(filter);
+    // Сразу показываем loading, чтобы пользователь видел реакцию
+    setLoading(true);
+  };
 
   useEffect(() => {
     const handleFocus = () => fetchTrainings();
     window.addEventListener("focus", handleFocus);
     return () => window.removeEventListener("focus", handleFocus);
   }, [fetchTrainings]);
-
   const handleEdit = (training) => {
     setEditingTraining(training.id);
     setFormData({
@@ -100,7 +140,6 @@ const TrainingsPage = () => {
     setShowParticipantsModal(true);
   }, []);
 
-  // ← SSE через useEffect
   useEffect(() => {
     const userId = userData?.sub;
     if (!userId) return;
@@ -244,7 +283,7 @@ const TrainingsPage = () => {
                 className="btn-outline"
                 onClick={() => navigate("/my-trainings")}
               >
-                📅 Мои тренировки
+                Мои тренировки
               </button>
             )}
             {userRole === "COACH" && (
@@ -272,8 +311,25 @@ const TrainingsPage = () => {
       </header>
 
       <main className="container">
-        <h1 className="page-title">🏋️‍♂️ Тренировки</h1>
-
+        <h1 className="page-title"> Тренировки</h1>
+        <div className="plan-filters" style={{ marginBottom: "20px" }}>
+          <button
+            className={`filter-btn ${
+              trainingFilter === "upcoming" ? "active" : ""
+            }`}
+            onClick={() => handleFilterChange("upcoming")}
+          >
+            Предстоящие
+          </button>
+          <button
+            className={`filter-btn ${
+              trainingFilter === "active" ? "active" : ""
+            }`}
+            onClick={() => handleFilterChange("active")}
+          >
+            Активные
+          </button>
+        </div>
         {showCreateForm && userRole === "COACH" && (
           <div className="create-training-form">
             <h3>
@@ -570,7 +626,7 @@ const TrainingsPage = () => {
         >
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h3>👥 Участники тренировки</h3>
+              <h3>Участники тренировки</h3>
               <button
                 className="modal-close"
                 onClick={() => setShowParticipantsModal(false)}
@@ -593,12 +649,75 @@ const TrainingsPage = () => {
                 {participants.map((p, index) => (
                   <div key={p.id || index} className="participant-item">
                     <div className="participant-number">{index + 1}</div>
-                    <div className="participant-icon">🏃</div>
                     <div className="participant-info">
                       <div className="participant-name">{p.fullName}</div>
-                      <div className="participant-details"></div>
+                      <div className="participant-details">
+                        {p.sportType && <span>{p.sportType}</span>}
+                        {p.rank && <span>· {p.rank}</span>}
+                      </div>
                     </div>
-                    <div className="participant-badge present">Записан</div>
+                    <div className="participant-status-group">
+                      <span
+                        className={`status-tag ${(
+                          p.status || "registered"
+                        ).toLowerCase()}`}
+                      >
+                        {p.status === "ATTENDED"
+                          ? "Был"
+                          : p.status === "LATE"
+                          ? "Опоздал"
+                          : p.status === "ABSENT"
+                          ? "Не был"
+                          : "Записан"}
+                      </span>
+                      <div className="quick-actions-row">
+                        <button
+                          className={`action-dot ${
+                            p.status === "ATTENDED" ? "active" : ""
+                          }`}
+                          onClick={() =>
+                            markAttendance(
+                              selectedTraining.id,
+                              p.athleteId,
+                              "ATTENDED"
+                            )
+                          }
+                          title="Присутствовал"
+                        >
+                          Был
+                        </button>
+                        <button
+                          className={`action-dot ${
+                            p.status === "LATE" ? "active" : ""
+                          }`}
+                          onClick={() =>
+                            markAttendance(
+                              selectedTraining.id,
+                              p.athleteId,
+                              "LATE"
+                            )
+                          }
+                          title="Опоздал"
+                        >
+                          Опоздал
+                        </button>
+                        <button
+                          className={`action-dot ${
+                            p.status === "ABSENT" ? "active" : ""
+                          }`}
+                          onClick={() =>
+                            markAttendance(
+                              selectedTraining.id,
+                              p.athleteId,
+                              "ABSENT"
+                            )
+                          }
+                          title="Не пришел"
+                        >
+                          Не был
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 ))}
               </div>

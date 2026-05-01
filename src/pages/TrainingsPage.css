@@ -661,3 +661,51 @@ select.form-input {
   padding: 24px;
   font-size: 0.9rem;
 }
+.participant-status-group {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.status-tag {
+  font-size: 0.7rem;
+  font-weight: 500;
+  padding: 2px 8px;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+
+.status-tag.attended { background: #dcfce7; color: #16a34a; }
+.status-tag.late { background: #fefce8; color: #ca8a04; }
+.status-tag.absent { background: #fef2f2; color: #ef4444; }
+.status-tag.registered { background: #f1f5f9; color: #64748b; }
+
+.quick-actions-row {
+  display: flex;
+  gap: 4px;
+}
+
+.action-dot {
+  padding: 3px 8px;
+  font-size: 0.7rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  background: white;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-weight: 500;
+}
+
+.action-dot:hover {
+  border-color: #cbd5e1;
+  background: #f8fafc;
+}
+
+.action-dot.active {
+  background: #1a1a2e;
+  color: white;
+  border-color: #1a1a2e;
+}

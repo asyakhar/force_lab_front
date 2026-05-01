@@ -1,10 +1,8 @@
-// frontend/src/pages/MainPage.jsx
 import React, { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import "./MainPage.css";
 
-// SVG иконки для Features секции
 const FeatureIcons = {
   individual: (
     <svg
@@ -104,9 +102,7 @@ const MainPage = () => {
                   <Link to="/my-trainings" className="nav-link">
                     Мои тренировки
                   </Link>
-                  <Link to="/achievements" className="nav-link">
-                    Достижения
-                  </Link>
+
                   <Link to="/progress" className="nav-link">
                     Прогресс
                   </Link>
