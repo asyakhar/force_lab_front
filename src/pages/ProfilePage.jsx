@@ -122,12 +122,6 @@ const ProfilePage = () => {
               >
                 Прогресс
               </button>
-              <button
-                className={`tab-btn ${activeTab === "plans" ? "active" : ""}`}
-                onClick={() => setActiveTab("plans")}
-              >
-                Планы
-              </button>
             </>
           )}
         </div>

@@ -212,16 +212,7 @@ const CoachAthletesPage = () => {
               </div>
             </div>
 
-            <div className="quick-actions">
-              <button
-                className="btn-primary"
-                onClick={() =>
-                  navigate(`/coach/athletes/${selectedAthlete.id}/assign-plan`)
-                }
-              >
-                Назначить план
-              </button>
-            </div>
+            <div className="quick-actions"></div>
           </div>
         ) : (
           <>

@@ -38,11 +38,9 @@ const TrainingsPage = () => {
         }
       );
 
-      // ✅ Сначала пробуем получить JSON с сообщением от сервера
       const data = await response.json().catch(() => ({}));
 
       if (!response.ok) {
-        // ✅ Показываем сообщение от сервера, а не "Ошибка отметки"
         throw new Error(data.message || "Ошибка отметки");
       }
 
@@ -84,7 +82,7 @@ const TrainingsPage = () => {
   }, [fetchTrainings]);
   const handleFilterChange = (filter) => {
     setTrainingFilter(filter);
-    // Сразу показываем loading, чтобы пользователь видел реакцию
+
     setLoading(true);
   };
 
